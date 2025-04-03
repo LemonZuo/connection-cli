@@ -24,22 +24,6 @@ builds:
       - goos: windows
         goarch: arm64
 
-# 移除archives配置，不生成压缩文件
-# archives:
-#   - format: tar.gz
-#     name_template: >-
-#       {{ .ProjectName }}_
-#       {{- .Version }}_
-#       {{- .Os }}_
-#       {{- .Arch }}
-#     # use zip for windows archives
-#     format_overrides:
-#     - goos: windows
-#       format: zip
-#     files:
-#       - README.md
-#       - LICENSE
-
 checksum:
   name_template: 'checksums.txt'
 
@@ -52,20 +36,6 @@ changelog:
       - '^chore:'
       - Merge pull request
       - Merge branch
-
-# 注释掉DockerS部分，我们会在workflow中单独处理
-# 这样可以使用预编译的二进制文件，加快构建速度
-# dockers:
-#   - image_templates:
-#       - "zuokaiqi/connection-cli:{{ .Version }}"
-#       - "zuokaiqi/connection-cli:latest"
-#     dockerfile: Dockerfile
-#     use: buildx
-#     build_flag_templates:
-#       - "--platform=linux/amd64,linux/arm64"
-#       - "--build-arg=VERSION={{ .Version }}"
-#     # Skip this if we don't have a DOCKER_USERNAME or DOCKER_PASSWORD
-#     skip_push: auto
 
 # Publish to GitHub Releases
 release:

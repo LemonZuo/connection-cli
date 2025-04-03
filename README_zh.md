@@ -168,7 +168,7 @@ MIT
 ## 统计数据
 ![Docker 拉取次数](https://img.shields.io/docker/pulls/zuokaiqi/connection-cli)
 ![GitHub 提交活动](https://img.shields.io/github/commit-activity/t/LemonZuo/connection-cli)
-![GitHub Actions 工作流状态](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Fci.yml)
+![GitHub Actions 工作流状态](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Frelease.yml)
 
 ## Star 历史
 [![Star 历史图表](https://api.star-history.com/svg?repos=LemonZuo/connection-cli&type=Date)](https://www.star-history.com/#LemonZuo/connection-cli&Date)

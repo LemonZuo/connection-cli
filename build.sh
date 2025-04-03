@@ -6,17 +6,16 @@ BINARY="connection-cli"
 VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
 BUILD_DIR="./build"
 CMD_DIR="./cmd"
-DOCKER_REPO="zuokaiqi"
 
 # 加载 build.env 文件（如果存在）
 if [ -f "build.env" ]; then
   echo "Loading environment variables from build.env"
   source build.env
-  
-  # 如果环境变量中有定义，则覆盖默认值
-  if [ ! -z "$DOCKER_USERNAME" ]; then
-    DOCKER_REPO="$DOCKER_USERNAME"
-    echo "Using Docker username from build.env: $DOCKER_REPO"
+
+  # 如果环境变量不存在
+  if [ -z "$DOCKER_USERNAME" ] || [ -z "$DOCKER_PASSWORD" ]; then
+    echo "❌ Docker credentials not found in build.env. Please set DOCKER_USERNAME and DOCKER_PASSWORD."
+    exit 1
   fi
 fi
 
@@ -137,8 +136,8 @@ build_docker() {
   # 构建多平台镜像
   echo "🔨 Building multi-platform Docker image..."
   docker buildx build --platform linux/amd64,linux/arm64 \
-    -t $DOCKER_REPO/$BINARY:$VERSION \
-    -t $DOCKER_REPO/$BINARY:latest \
+    -t $DOCKER_USERNAME/$BINARY:$VERSION \
+    -t $DOCKER_USERNAME/$BINARY:latest \
     --build-arg VERSION=$VERSION \
     --push \
     --progress=plain \
@@ -150,7 +149,7 @@ build_docker() {
   docker_logout
   
   if [ $PUSH_STATUS -eq 0 ]; then
-    echo "✅ Docker image built and pushed successfully: $DOCKER_REPO/$BINARY:$VERSION"
+    echo "✅ Docker image built and pushed successfully: $DOCKER_USERNAME/$BINARY:$VERSION"
   else
     echo "❌ Failed to build or push Docker image"
     exit 1
@@ -166,17 +165,11 @@ build_docker_local() {
   
   # 自动登录Docker
   docker_login
-    
-  # 使用环境变量中的用户名
-  if [ "$DOCKER_USERNAME" != "$DOCKER_REPO" ]; then
-    echo "Using Docker username from build.env: $DOCKER_USERNAME"
-    DOCKER_REPO="$DOCKER_USERNAME"
-  fi
   
   # 构建镜像
   echo "🔨 Building Docker image..."
-  docker build -t $DOCKER_REPO/$BINARY:$VERSION \
-    -t $DOCKER_REPO/$BINARY:latest \
+  docker build -t $DOCKER_USERNAME/$BINARY:$VERSION \
+    -t $DOCKER_USERNAME/$BINARY:latest \
     --build-arg VERSION=$VERSION \
     .
   
@@ -184,11 +177,11 @@ build_docker_local() {
   
   # 如果构建成功，则推送镜像
   if [ $BUILD_STATUS -eq 0 ]; then
-    echo "✅ Docker image built successfully: $DOCKER_REPO/$BINARY:$VERSION"
+    echo "✅ Docker image built successfully: $DOCKER_USERNAME/$BINARY:$VERSION"
     echo "🚀 Pushing Docker image to repository..."
     
-    docker push $DOCKER_REPO/$BINARY:$VERSION
-    docker push $DOCKER_REPO/$BINARY:latest
+    docker push $DOCKER_USERNAME/$BINARY:$VERSION
+    docker push $DOCKER_USERNAME/$BINARY:latest
     
     PUSH_STATUS=$?
     if [ $PUSH_STATUS -eq 0 ]; then

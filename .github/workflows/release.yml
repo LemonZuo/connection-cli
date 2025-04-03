@@ -254,10 +254,6 @@ jobs:
           
           ARG VERSION=dev
           
-          LABEL version="\${VERSION}" \\
-                maintainer="zuokaiqi" \\
-                description="Connection testing CLI tool"
-          
           WORKDIR /app
           
           # 复制预编译的二进制文件（根据平台自动选择）
@@ -300,7 +296,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: zuokaiqi/connection-cli
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/connection-cli
           tags: |
             type=raw,value=${{ needs.pre_check.outputs.version }}
             type=raw,value=latest

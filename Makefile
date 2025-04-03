@@ -4,15 +4,10 @@
 BINARY=connection-cli
 # Get version from git tag, fallback to 1.0.0 if no tag exists
 VERSION=$(shell git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-DOCKER_REPO=zuokaiqi
 
 # Import environment variables from build.env if it exists
 ifneq (,$(wildcard ./build.env))
     include build.env
-    # Override Docker repo with username if provided
-    ifdef DOCKER_USERNAME
-        DOCKER_REPO=$(DOCKER_USERNAME)
-    endif
     export
 endif
 
@@ -101,16 +96,16 @@ docker-build:
 	$(call start_timer)
 	@echo "🐳 Building Docker image locally..."
 	@$(MAKE) docker-login
-	docker build -t $(DOCKER_REPO)/$(BINARY):$(VERSION) \
-		-t $(DOCKER_REPO)/$(BINARY):latest \
+	docker build -t $(DOCKER_USERNAME)/$(BINARY):$(VERSION) \
+		-t $(DOCKER_USERNAME)/$(BINARY):latest \
 		--build-arg VERSION=$(VERSION) \
 		.
 	@RESULT=$$?; \
 	if [ $$RESULT -eq 0 ]; then \
-		echo "✅ Docker image built successfully: $(DOCKER_REPO)/$(BINARY):$(VERSION)"; \
+		echo "✅ Docker image built successfully: $(DOCKER_USERNAME)/$(BINARY):$(VERSION)"; \
 		echo "🚀 Pushing Docker image to repository..."; \
-		docker push $(DOCKER_REPO)/$(BINARY):$(VERSION); \
-		docker push $(DOCKER_REPO)/$(BINARY):latest; \
+		docker push $(DOCKER_USERNAME)/$(BINARY):$(VERSION); \
+		docker push $(DOCKER_USERNAME)/$(BINARY):latest; \
 		PUSH_RESULT=$$?; \
 		if [ $$PUSH_RESULT -eq 0 ]; then \
 			echo "✅ Docker image pushed successfully"; \
@@ -127,8 +122,8 @@ docker-build:
 docker-push: docker-login
 	$(call start_timer)
 	@echo "🚀 Pushing Docker images to repository..."
-	docker push $(DOCKER_REPO)/$(BINARY):$(VERSION)
-	docker push $(DOCKER_REPO)/$(BINARY):latest
+	docker push $(DOCKER_USERNAME)/$(BINARY):$(VERSION)
+	docker push $(DOCKER_USERNAME)/$(BINARY):latest
 	@echo "✅ Docker images pushed successfully"
 	@$(MAKE) docker-logout
 	$(call end_timer)
@@ -141,14 +136,14 @@ docker-buildx:
 	docker buildx create --name mybuilder --use || true
 	docker buildx use mybuilder
 	docker buildx build --platform linux/amd64,linux/arm64 \
-		-t $(DOCKER_REPO)/$(BINARY):$(VERSION) \
-		-t $(DOCKER_REPO)/$(BINARY):latest \
+		-t $(DOCKER_USERNAME)/$(BINARY):$(VERSION) \
+		-t $(DOCKER_USERNAME)/$(BINARY):latest \
 		--build-arg VERSION=$(VERSION) \
 		--push \
 		.
 	@RESULT=$$?; \
 	if [ $$RESULT -eq 0 ]; then \
-		echo "✅ Multi-platform Docker image built and pushed successfully: $(DOCKER_REPO)/$(BINARY):$(VERSION)"; \
+		echo "✅ Multi-platform Docker image built and pushed successfully: $(DOCKER_USERNAME)/$(BINARY):$(VERSION)"; \
 	else \
 		echo "❌ Failed to build or push multi-platform Docker image"; \
 	fi
@@ -158,7 +153,7 @@ docker-buildx:
 # Run the app in Docker
 docker-run:
 	@echo "🚀 Running container: $(BINARY)"
-	docker run -d --name $(BINARY) $(DOCKER_REPO)/$(BINARY):$(VERSION)
+	docker run -d --name $(BINARY) $(DOCKER_USERNAME)/$(BINARY):$(VERSION)
 
 # Test running containers
 docker-test:
