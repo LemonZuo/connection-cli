@@ -22,6 +22,7 @@ on:
         default: false
 
 jobs:
+  # 1. 测试阶段
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -42,10 +43,11 @@ jobs:
       - name: Run tests
         run: go test -v ./...
 
+  # 2. 使用GoReleaser构建可执行文件
   build:
     name: Build with GoReleaser
     runs-on: ubuntu-latest
-    needs: test
+    needs: test  # 确保测试通过后才构建
     steps:
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -84,20 +86,8 @@ jobs:
           fi
           echo "Event: ${{ github.event_name }}, Ref: ${{ github.ref }}, Is Release: ${{ steps.is_release.outputs.is_release }}"
 
-      # 如果是正式release，使用goreleaser发布
-      - name: Release with GoReleaser
-        if: steps.is_release.outputs.is_release == 'true'
-        uses: goreleaser/goreleaser-action@v5
-        with:
-          distribution: goreleaser
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 如果不是正式release，只构建，不发布
+      # 使用GoReleaser构建（但不发布）
       - name: Build with GoReleaser (without releasing)
-        if: steps.is_release.outputs.is_release != 'true'
         run: |
           # Create a temporary .goreleaser.yml file for building only (no release)
           cat > .goreleaser.build.yml << EOF
@@ -120,6 +110,14 @@ jobs:
               ignore:
                 - goos: windows
                   goarch: arm64
+          # 不创建压缩包
+          archives:
+            - format: binary
+              name_template: "{{ .Binary }}"
+              allow_different_binary_count: true
+              files: []  # 不包含任何额外文件
+          checksum:
+            name_template: 'checksums.txt'
           EOF
           
           # Build using GoReleaser
@@ -170,6 +168,7 @@ jobs:
           name: goreleaser-dist
           path: dist/
 
+  # 3. 构建Docker镜像
   docker:
     name: Build and Push Docker image
     runs-on: ubuntu-latest
@@ -289,4 +288,52 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ steps.get_version.outputs.version }} 
+            VERSION=${{ steps.get_version.outputs.version }}
+
+  # 4. 发布Release（只在tag或release事件时执行）
+  release:
+    name: Publish Release
+    runs-on: ubuntu-latest
+    needs: [build, docker]  # 依赖于构建和Docker任务
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper versioning
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            VERSION="${{ github.event.inputs.version_override }}"
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: build
+
+      # 创建自定义发布（不使用GoReleaser进行发布）
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            build/*
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }} 

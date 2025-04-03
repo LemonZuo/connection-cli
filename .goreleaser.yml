@@ -24,20 +24,21 @@ builds:
       - goos: windows
         goarch: arm64
 
-archives:
-  - format: tar.gz
-    name_template: >-
-      {{ .ProjectName }}_
-      {{- .Version }}_
-      {{- .Os }}_
-      {{- .Arch }}
-    # use zip for windows archives
-    format_overrides:
-    - goos: windows
-      format: zip
-    files:
-      - README.md
-      - LICENSE
+# 移除archives配置，不生成压缩文件
+# archives:
+#   - format: tar.gz
+#     name_template: >-
+#       {{ .ProjectName }}_
+#       {{- .Version }}_
+#       {{- .Os }}_
+#       {{- .Arch }}
+#     # use zip for windows archives
+#     format_overrides:
+#     - goos: windows
+#       format: zip
+#     files:
+#       - README.md
+#       - LICENSE
 
 checksum:
   name_template: 'checksums.txt'
