@@ -314,7 +314,7 @@ jobs:
           build-args: |
             VERSION=${{ needs.pre_check.outputs.version }}
 
-  # 4. 发布Release（使用GitHub CLI直接创建release，不使用action）
+  # 4. 发布Release
   release:
     name: Publish Release
     runs-on: ubuntu-latest
@@ -340,12 +340,58 @@ jobs:
           shasum -a 256 *.* > checksums.txt
           cat checksums.txt
 
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: "latest"
+      - name: Get previous tag
+        id: previoustag
+        run: |
+          # 获取当前标签
+          CURRENT_TAG="${{ needs.pre_check.outputs.version }}"
+          echo "current_tag=$CURRENT_TAG" >> $GITHUB_OUTPUT
+          
+          # 获取上一个标签
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 $CURRENT_TAG^ 2>/dev/null || echo "")
+          echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+          
+          echo "Current tag: $CURRENT_TAG"
+          echo "Previous tag: $PREVIOUS_TAG"
 
-      - name: Changelog
-        run: bun x changelogithub
-        env:
-          GITHUB_TOKEN: ${{ github.token }} 
+      - name: Generate Release Body
+        id: release_body
+        run: |
+          CURRENT_TAG="${{ steps.previoustag.outputs.current_tag }}"
+          PREVIOUS_TAG="${{ steps.previoustag.outputs.previous_tag }}"
+          
+          echo "# $CURRENT_TAG" > release_body.md
+          echo "" >> release_body.md
+          
+          echo "## 📝 Changelog" >> release_body.md
+          echo "" >> release_body.md
+          
+          if [ -n "$PREVIOUS_TAG" ]; then
+            echo "Full Changelog: [$PREVIOUS_TAG...$CURRENT_TAG](https://github.com/${{ github.repository }}/compare/$PREVIOUS_TAG...$CURRENT_TAG)" >> release_body.md
+            echo "" >> release_body.md
+            
+            # 获取提交日志并分类
+            echo "### 🚀 Features" >> release_body.md
+            git log --pretty=format:"* %s" $PREVIOUS_TAG..$CURRENT_TAG | grep -i "feat\|feature\|新增\|添加" >> release_body.md || echo "* No new features" >> release_body.md
+            echo "" >> release_body.md
+            
+            echo "### 🐛 Bug Fixes" >> release_body.md
+            git log --pretty=format:"* %s" $PREVIOUS_TAG..$CURRENT_TAG | grep -i "fix\|修复\|bug" >> release_body.md || echo "* No bug fixes" >> release_body.md
+            echo "" >> release_body.md
+            
+            echo "### ♻️ Other Changes" >> release_body.md
+            git log --pretty=format:"* %s" $PREVIOUS_TAG..$CURRENT_TAG | grep -v -i "feat\|feature\|fix\|bug\|新增\|添加\|修复" >> release_body.md || echo "* No other changes" >> release_body.md
+          else
+            echo "🎉 First Release" >> release_body.md
+          fi
+      
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ needs.pre_check.outputs.version }}
+          name: ${{ needs.pre_check.outputs.version }}
+          artifacts: "build/*"
+          allowUpdates: true
+          makeLatest: true
+          replacesArtifacts: true
+          bodyFile: release_body.md
