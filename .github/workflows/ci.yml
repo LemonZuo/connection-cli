@@ -340,7 +340,18 @@ jobs:
           shasum -a 256 *.* > checksums.txt
           cat checksums.txt
 
-      # 使用GitHub CLI创建Release，而不是使用可能有问题的action
+      # 使用Bun和changelogithub替代手动生成变更日志
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "latest"
+
+      - name: Generate Changelog
+        run: bun x changelogithub
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      # 使用GitHub CLI创建Release
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -352,9 +363,9 @@ jobs:
             files="$files $file"
           done
           
-          # 使用GitHub CLI创建release
+          # 使用GitHub CLI创建release，只使用版本号作为标题
           echo "Creating release for tag $VERSION"
           gh release create $VERSION \
-            --title "Release $VERSION" \
-            --notes "Release $VERSION" \
+            --title "$VERSION" \
+            --verify-tag \
             $files 
