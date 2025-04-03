@@ -27,6 +27,9 @@ FROM alpine:latest
 
 # Accept the version argument in the final stage too
 ARG VERSION=1.0.0
+ARG TARGETOS
+ARG TARGETARCH
+
 # Set version label
 LABEL version="${VERSION}" \
       maintainer="zuokaiqi" \
@@ -35,7 +38,7 @@ LABEL version="${VERSION}" \
 WORKDIR /app
 
 # Copy the binaries from the builder stage
-COPY --from=builder /app/bin/connection-cli-linux-amd64 /app/connection-cli
+COPY --from=builder /app/bin/connection-cli--${TARGETOS}-${TARGETARCH} /app/connection-cli
 
 # Make the binary executable
 RUN chmod +x /app/connection-cli
@@ -50,7 +53,3 @@ RUN chmod +x /app/entrypoint.sh
 
 # Set the entrypoint to our shell script
 ENTRYPOINT ["/app/entrypoint.sh"]
-
-# Health check using the application itself
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD /app/connection-cli -mode=${HEALTH_MODE:-port} -host=${HEALTH_HOST:-localhost} -port=${HEALTH_PORT:-80} -timeout=${HEALTH_TIMEOUT:-5s} || exit 1 

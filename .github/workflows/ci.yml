@@ -253,6 +253,8 @@ jobs:
           FROM alpine:latest
           
           ARG VERSION=dev
+          ARG TARGETOS
+          ARG TARGETARCH
           
           LABEL version="\${VERSION}" \\
                 maintainer="zuokaiqi" \\
@@ -261,7 +263,7 @@ jobs:
           WORKDIR /app
           
           # 复制预编译的二进制文件
-          COPY bin/connection-cli-linux-amd64 /app/connection-cli
+          COPY bin/connection-cli--${TARGETOS}-${TARGETARCH} /app/connection-cli
           
           # 创建multi-arch二进制目录
           RUN mkdir -p /app/bin
@@ -277,9 +279,6 @@ jobs:
           # 设置entrypoint
           ENTRYPOINT ["/app/entrypoint.sh"]
           
-          # 健康检查
-          HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \\
-            CMD /app/connection-cli -mode=\${HEALTH_MODE:-port} -host=\${HEALTH_HOST:-localhost} -port=\${HEALTH_PORT:-80} -timeout=\${HEALTH_TIMEOUT:-5s} || exit 1
           EOF
 
       - name: Set up QEMU
