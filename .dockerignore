@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Build
+build/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Testing
+*.test
+*.out
+coverage.txt
+
+# Environment files with secrets
+build.env
+.env
+*.env
+!build.env.example
+!.env.example
+!*.env.example
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific
+.DS_Store
+Thumbs.db 
