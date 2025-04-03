@@ -2,6 +2,13 @@
 
 [English](README.md) | [中文](README_zh.md)
 
+![GitHub License](https://img.shields.io/github/license/LemonZuo/connection-cli)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/t/LemonZuo/connection-cli)
+![GitHub Release](https://img.shields.io/github/v/release/LemonZuo/connection-cli?color=brightgreen)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Fci.yml)
+![Docker Pulls](https://img.shields.io/docker/pulls/zuokaiqi/connection-cli)
+
+
 A Go application that tests connectivity to various services including MySQL, PostgreSQL, Redis, port checks, and HTTP URLs.
 
 ## Features
@@ -165,11 +172,6 @@ This allows you to keep a record of all connectivity tests even when running in 
 
 MIT 
 
-## Stats
-![Docker Pulls](https://img.shields.io/docker/pulls/zuokaiqi/connection-cli)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/t/LemonZuo/connection-cli)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Frelease.yml)
-
 ## Star History
-
+****
 [![Star History Chart](https://api.star-history.com/svg?repos=LemonZuo/connection-cli&type=Date)](https://www.star-history.com/#LemonZuo/connection-cli&Date)
