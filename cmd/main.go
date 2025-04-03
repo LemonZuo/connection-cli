@@ -74,9 +74,9 @@ func main() {
 		config.Host = os.Getenv("HOST")
 	}
 	if os.Getenv("PORT") != "" {
-		port, err := strconv.Atoi(os.Getenv("PORT"))
+		envPort, err := strconv.Atoi(os.Getenv("PORT"))
 		if err == nil {
-			config.Port = port
+			config.Port = envPort
 		}
 	}
 	if os.Getenv("USERNAME") != "" {
@@ -140,7 +140,7 @@ func main() {
 	var testErr error
 	switch strings.ToLower(config.Mode) {
 	case "mysql":
-		logger.Info("Testing MySQL connection to %s:%d", config.Host, config.Port)
+		// logger.Info("Testing MySQL connection to %s:%d", config.Host, config.Port)
 		testErr = mysql.Test(mysql.Config{
 			Host:     config.Host,
 			Port:     config.Port,
@@ -150,7 +150,7 @@ func main() {
 			Timeout:  config.Timeout,
 		})
 	case "postgres":
-		logger.Info("Testing PostgreSQL connection to %s:%d", config.Host, config.Port)
+		// logger.Info("Testing PostgreSQL connection to %s:%d", config.Host, config.Port)
 		testErr = postgres.Test(postgres.Config{
 			Host:     config.Host,
 			Port:     config.Port,
@@ -161,7 +161,7 @@ func main() {
 			Timeout:  config.Timeout,
 		})
 	case "redis":
-		logger.Info("Testing Redis connection to %s:%d", config.Host, config.Port)
+		// logger.Info("Testing Redis connection to %s:%d", config.Host, config.Port)
 		testErr = redis.Test(redis.Config{
 			Host:     config.Host,
 			Port:     config.Port,
@@ -171,14 +171,14 @@ func main() {
 			Timeout:  config.Timeout,
 		})
 	case "port":
-		logger.Info("Testing port connectivity to %s:%d", config.Host, config.Port)
+		// logger.Info("Testing port connectivity to %s:%d", config.Host, config.Port)
 		testErr = port.Test(port.Config{
 			Host:    config.Host,
 			Port:    config.Port,
 			Timeout: config.Timeout,
 		})
 	case "http":
-		logger.Info("Testing HTTP connection to %s", config.URL)
+		// logger.Info("Testing HTTP connection to %s", config.URL)
 		testErr = http.Test(http.Config{
 			URL:     config.URL,
 			Method:  config.HTTPMethod,
@@ -196,8 +196,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	successMsg := fmt.Sprintf("Successfully connected to %s", config.Mode)
-	logger.Info(successMsg)
-	fmt.Println(successMsg)
+	// successMsg := fmt.Sprintf("Successfully connected to %s", config.Mode)
+	// logger.Info(successMsg)
+	// fmt.Println(successMsg)
 	os.Exit(0)
 }
