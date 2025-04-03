@@ -2,14 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main ]
     tags:
-      - 'v*'
-  pull_request:
-    branches: [ main ]
-  release:
-    types: [ created ]
-  workflow_dispatch:
+      - "v*"  # 只在推送v开头的tag时触发
+  workflow_dispatch:  # 支持手动触发
     inputs:
       version_override:
         description: 'Override version (leave empty to use git tag)'
@@ -21,11 +16,66 @@ on:
         type: boolean
         default: false
 
+# 使用concurrency确保同时只有一个工作流运行
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # 预检步骤：判断是否继续运行完整工作流
+  pre_check:
+    name: Check Trigger Event
+    runs-on: ubuntu-latest
+    outputs:
+      should_run_full_workflow: ${{ steps.check.outputs.should_run }}
+      is_tag_or_release: ${{ steps.check.outputs.is_tag_or_release }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper versioning
+      
+      - name: Determine event type
+        id: check
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          # 如果是tag推送或release，则运行完整工作流包括Docker和Release
+          if [[ "${{ github.ref }}" == refs/tags/* || "${{ github.event_name }}" == "release" ]]; then
+            echo "This is a tag push or release event - will run full workflow"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "is_tag_or_release=true" >> $GITHUB_OUTPUT
+          # 如果是手动触发且指定构建Docker，则运行完整工作流
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.build_docker }}" == "true" ]]; then
+            echo "This is a manual trigger with Docker build option - will run full workflow"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "is_tag_or_release=false" >> $GITHUB_OUTPUT
+          # 如果是普通的分支推送或PR，只运行测试和基本构建
+          else
+            echo "This is a regular push or PR - will run tests and basic build only"
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "is_tag_or_release=false" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Get version
+        id: get_version
+        run: |
+          if [ -n "${{ github.event.inputs.version_override }}" ]; then
+            VERSION="${{ github.event.inputs.version_override }}"
+          else
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
   # 1. 测试阶段
   test:
     name: Test
     runs-on: ubuntu-latest
+    needs: pre_check
+    if: needs.pre_check.outputs.should_run_full_workflow == 'true'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -47,7 +97,8 @@ jobs:
   build:
     name: Build with GoReleaser
     runs-on: ubuntu-latest
-    needs: test  # 确保测试通过后才构建
+    needs: [pre_check, test]  # 依赖预检和测试
+    if: needs.pre_check.outputs.should_run_full_workflow == 'true'
     steps:
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -58,33 +109,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
-
-      - name: Get version
-        id: get_version
-        run: |
-          if [ -n "${{ github.event.inputs.version_override }}" ]; then
-            VERSION="${{ github.event.inputs.version_override }}"
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Using version: $VERSION"
       
       - name: Set up GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           install-only: true
-
-      # 确定是构建还是发布
-      - name: Determine if this is a release
-        id: is_release
-        run: |
-          if [[ "${{ github.event_name }}" == "release" || "${{ github.ref }}" == refs/tags/* ]]; then
-            echo "is_release=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_release=false" >> $GITHUB_OUTPUT
-          fi
-          echo "Event: ${{ github.event_name }}, Ref: ${{ github.ref }}, Is Release: ${{ steps.is_release.outputs.is_release }}"
 
       # 使用GoReleaser构建（但不发布）
       - name: Build with GoReleaser (without releasing)
@@ -99,7 +128,7 @@ jobs:
               env:
                 - CGO_ENABLED=0
               ldflags:
-                - -s -w -X main.Version=${{ steps.get_version.outputs.version }}
+                - -s -w -X main.Version=${{ needs.pre_check.outputs.version }}
               goos:
                 - linux
                 - darwin
@@ -163,33 +192,23 @@ jobs:
 
       # 添加一个额外的步骤，保存GoReleaser的dist目录，用于Docker构建
       - name: Upload dist directory
+        if: needs.pre_check.outputs.is_tag_or_release == 'true' || github.event.inputs.build_docker == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: goreleaser-dist
           path: dist/
 
-  # 3. 构建Docker镜像
+  # 3. 构建Docker镜像（只在tag/release或手动触发时运行）
   docker:
     name: Build and Push Docker image
     runs-on: ubuntu-latest
-    needs: build  # 确保依赖于构建任务，以使用其产物
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker == 'true')
+    needs: [pre_check, build]  # 依赖预检和构建
+    if: needs.pre_check.outputs.is_tag_or_release == 'true' || github.event.inputs.build_docker == 'true'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
-
-      - name: Get version
-        id: get_version
-        run: |
-          if [ -n "${{ github.event.inputs.version_override }}" ]; then
-            VERSION="${{ github.event.inputs.version_override }}"
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Using version: $VERSION"
 
       # 下载GoReleaser构建的二进制文件
       - name: Download goreleaser dist
@@ -276,7 +295,7 @@ jobs:
         with:
           images: zuokaiqi/connection-cli
           tags: |
-            type=raw,value=${{ steps.get_version.outputs.version }}
+            type=raw,value=${{ needs.pre_check.outputs.version }}
             type=raw,value=latest
 
       - name: Build and push with optimized Dockerfile
@@ -288,35 +307,19 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ steps.get_version.outputs.version }}
+            VERSION=${{ needs.pre_check.outputs.version }}
 
-  # 4. 发布Release（只在tag或release事件时执行）
+  # 4. 发布Release（只在tag/release事件时执行）
   release:
     name: Publish Release
     runs-on: ubuntu-latest
-    needs: [build, docker]  # 依赖于构建和Docker任务
-    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+    needs: [pre_check, build, docker]  # 依赖预检、构建和Docker
+    if: needs.pre_check.outputs.is_tag_or_release == 'true'
     steps:
       - name: Check out code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
-
-      - name: Set up Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: '1.21'
-
-      - name: Get version
-        id: get_version
-        run: |
-          if [ -n "${{ github.event.inputs.version_override }}" ]; then
-            VERSION="${{ github.event.inputs.version_override }}"
-          else
-            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "1.0.0")
-          fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Using version: $VERSION"
 
       - name: Download binaries
         uses: actions/download-artifact@v4
@@ -328,7 +331,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ steps.get_version.outputs.version }}
+          name: Release ${{ needs.pre_check.outputs.version }}
           tag_name: ${{ github.ref_name }}
           draft: false
           prerelease: false
