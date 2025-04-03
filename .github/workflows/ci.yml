@@ -253,8 +253,6 @@ jobs:
           FROM alpine:latest
           
           ARG VERSION=dev
-          ARG TARGETOS
-          ARG TARGETARCH
           
           LABEL version="\${VERSION}" \\
                 maintainer="zuokaiqi" \\
@@ -262,15 +260,21 @@ jobs:
           
           WORKDIR /app
           
-          # 复制预编译的二进制文件
-          COPY bin/connection-cli--${TARGETOS}-${TARGETARCH} /app/connection-cli
+          # 复制预编译的二进制文件（根据平台自动选择）
+          COPY bin/connection-cli-linux-amd64 /app/bin/connection-cli-linux-amd64
+          COPY bin/connection-cli-linux-arm64 /app/bin/connection-cli-linux-arm64
           
-          # 创建multi-arch二进制目录
-          RUN mkdir -p /app/bin
-          COPY bin/* /app/bin/
+          # 设置 TARGETPLATFORM 环境变量以在entrypoint中使用
+          ARG TARGETPLATFORM
+          ENV TARGETPLATFORM=\${TARGETPLATFORM:-linux/amd64}
           
-          # 使二进制文件可执行
-          RUN chmod +x /app/connection-cli /app/bin/*
+          # 根据平台选择正确的二进制文件
+          RUN if [ "\${TARGETPLATFORM}" = "linux/arm64" ]; then \\
+                cp /app/bin/connection-cli-linux-arm64 /app/connection-cli; \\
+              else \\
+                cp /app/bin/connection-cli-linux-amd64 /app/connection-cli; \\
+              fi && \\
+              chmod +x /app/connection-cli
           
           # 复制entrypoint脚本
           COPY entrypoint.sh /app/entrypoint.sh
@@ -278,7 +282,6 @@ jobs:
           
           # 设置entrypoint
           ENTRYPOINT ["/app/entrypoint.sh"]
-          
           EOF
 
       - name: Set up QEMU
