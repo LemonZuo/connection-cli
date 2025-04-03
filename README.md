@@ -154,3 +154,7 @@ healthcheck:
 ## License
 
 MIT 
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=LemonZuo/connection-cli&type=Date)](https://www.star-history.com/#LemonZuo/connection-cli&Date)
