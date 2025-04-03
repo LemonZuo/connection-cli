@@ -127,11 +127,11 @@ build_docker() {
   docker_login
   
   # 创建新的构建器实例（如果不存在）
-  if ! docker buildx inspect mybuilder > /dev/null 2>&1; then
+  if ! docker buildx inspect multi-platform-build > /dev/null 2>&1; then
     echo "🔧 Creating new Docker Buildx builder..."
-    docker buildx create --name mybuilder --use
+    docker buildx create --name multi-platform-build --use
   else
-    docker buildx use mybuilder
+    docker buildx use multi-platform-build
   fi
   
   # 构建多平台镜像
@@ -141,6 +141,7 @@ build_docker() {
     -t $DOCKER_REPO/$BINARY:latest \
     --build-arg VERSION=$VERSION \
     --push \
+    --progress=plain \
     .
   
   PUSH_STATUS=$?
