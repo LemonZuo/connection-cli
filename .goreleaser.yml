@@ -1,0 +1,77 @@
+# GoReleaser configuration for connection-cli
+project_name: connection-cli
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: connection-cli
+    main: ./cmd
+    binary: connection-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.Version={{.Version}}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    # use zip for windows archives
+    format_overrides:
+    - goos: windows
+      format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - Merge pull request
+      - Merge branch
+
+# 注释掉DockerS部分，我们会在workflow中单独处理
+# 这样可以使用预编译的二进制文件，加快构建速度
+# dockers:
+#   - image_templates:
+#       - "zuokaiqi/connection-cli:{{ .Version }}"
+#       - "zuokaiqi/connection-cli:latest"
+#     dockerfile: Dockerfile
+#     use: buildx
+#     build_flag_templates:
+#       - "--platform=linux/amd64,linux/arm64"
+#       - "--build-arg=VERSION={{ .Version }}"
+#     # Skip this if we don't have a DOCKER_USERNAME or DOCKER_PASSWORD
+#     skip_push: auto
+
+# Publish to GitHub Releases
+release:
+  github:
+    owner: LemonZuo
+    name: connection-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  name_template: "{{ .Version }}" 

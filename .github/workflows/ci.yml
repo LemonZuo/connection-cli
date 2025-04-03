@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
 
@@ -43,17 +43,17 @@ jobs:
         run: go test -v ./...
 
   build:
-    name: Build
+    name: Build with GoReleaser
     runs-on: ubuntu-latest
     needs: test
     steps:
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: '1.21'
 
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
 
@@ -67,30 +67,96 @@ jobs:
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
+      
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          install-only: true
 
-      - name: Build for all platforms
+      - name: Build with GoReleaser
         run: |
+          # Create a temporary .goreleaser.yml file for building only (no release)
+          cat > .goreleaser.build.yml << EOF
+          project_name: connection-cli
+          builds:
+            - id: connection-cli
+              main: ./cmd
+              binary: connection-cli
+              env:
+                - CGO_ENABLED=0
+              ldflags:
+                - -s -w -X main.Version=${{ steps.get_version.outputs.version }}
+              goos:
+                - linux
+                - darwin
+                - windows
+              goarch:
+                - amd64
+                - arm64
+              ignore:
+                - goos: windows
+                  goarch: arm64
+          EOF
+          
+          # Build using GoReleaser
+          goreleaser build --config .goreleaser.build.yml --clean --snapshot
+          
+          # Move the built binaries to the standard location
           mkdir -p build
-          GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version=${{ steps.get_version.outputs.version }}" -o build/connection-cli-linux-amd64 ./cmd/
-          GOOS=linux GOARCH=arm64 go build -ldflags="-X main.Version=${{ steps.get_version.outputs.version }}" -o build/connection-cli-linux-arm64 ./cmd/
-          GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.Version=${{ steps.get_version.outputs.version }}" -o build/connection-cli-darwin-amd64 ./cmd/
-          GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.Version=${{ steps.get_version.outputs.version }}" -o build/connection-cli-darwin-arm64 ./cmd/
-          GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version=${{ steps.get_version.outputs.version }}" -o build/connection-cli-windows-amd64.exe ./cmd/
+          cp dist/connection-cli_linux_amd64_v1/connection-cli build/connection-cli-linux-amd64
+          cp dist/connection-cli_linux_arm64/connection-cli build/connection-cli-linux-arm64
+          cp dist/connection-cli_darwin_amd64_v1/connection-cli build/connection-cli-darwin-amd64
+          cp dist/connection-cli_darwin_arm64/connection-cli build/connection-cli-darwin-arm64
+          cp dist/connection-cli_windows_amd64_v1/connection-cli.exe build/connection-cli-windows-amd64.exe
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: binaries
           path: build/
 
+      # 添加一个额外的步骤，保存GoReleaser的dist目录，用于Docker构建
+      - name: Upload dist directory
+        uses: actions/upload-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist/
+
+  release-binaries:
+    name: Release Binaries
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper versioning
+
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          distribution: goreleaser
+          version: latest
+          install-only: false
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.event.inputs.version_override }}
+
   docker:
     name: Build and Push Docker image
     runs-on: ubuntu-latest
-    needs: test
+    needs: build  # 确保依赖于构建任务，以使用其产物
     if: github.event_name == 'release' || startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker == 'true')
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for proper versioning
 
@@ -105,55 +171,94 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
 
+      # 下载GoReleaser构建的二进制文件
+      - name: Download goreleaser dist
+        uses: actions/download-artifact@v4
+        with:
+          name: goreleaser-dist
+          path: dist
+
+      # 准备构建上下文
+      - name: Prepare build context
+        run: |
+          # 创建构建上下文目录
+          mkdir -p docker-context
+          
+          # 复制Dockerfile和其他需要的文件
+          cp Dockerfile entrypoint.sh docker-context/
+          
+          # 创建二进制文件目录
+          mkdir -p docker-context/bin
+          
+          # 复制Linux二进制文件到Docker构建上下文
+          cp dist/connection-cli_linux_amd64_v1/connection-cli docker-context/bin/connection-cli-linux-amd64
+          cp dist/connection-cli_linux_arm64/connection-cli docker-context/bin/connection-cli-linux-arm64
+          
+          # 使构建脚本可执行
+          chmod +x docker-context/entrypoint.sh
+          
+          # 创建简化版Dockerfile，使用预构建的二进制文件
+          cat > docker-context/Dockerfile << EOF
+          FROM alpine:latest
+          
+          ARG VERSION=dev
+          
+          LABEL version="\${VERSION}" \\
+                maintainer="zuokaiqi" \\
+                description="Connection testing CLI tool"
+          
+          WORKDIR /app
+          
+          # 复制预编译的二进制文件
+          COPY bin/connection-cli-linux-amd64 /app/connection-cli
+          
+          # 创建multi-arch二进制目录
+          RUN mkdir -p /app/bin
+          COPY bin/* /app/bin/
+          
+          # 使二进制文件可执行
+          RUN chmod +x /app/connection-cli /app/bin/*
+          
+          # 复制entrypoint脚本
+          COPY entrypoint.sh /app/entrypoint.sh
+          RUN chmod +x /app/entrypoint.sh
+          
+          # 设置entrypoint
+          ENTRYPOINT ["/app/entrypoint.sh"]
+          
+          # 健康检查
+          HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \\
+            CMD /app/connection-cli -mode=\${HEALTH_MODE:-port} -host=\${HEALTH_HOST:-localhost} -port=\${HEALTH_PORT:-80} -timeout=\${HEALTH_TIMEOUT:-5s} || exit 1
+          EOF
+
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v4
+        uses: docker/metadata-action@v5
         with:
           images: zuokaiqi/connection-cli
           tags: |
             type=raw,value=${{ steps.get_version.outputs.version }}
             type=raw,value=latest
 
-      - name: Build and push
-        uses: docker/build-push-action@v3
+      - name: Build and push with optimized Dockerfile
+        uses: docker/build-push-action@v5
         with:
-          context: .
+          context: docker-context
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
           build-args: |
-            VERSION=${{ steps.get_version.outputs.version }}
-
-  release:
-    name: Attach binaries to release
-    runs-on: ubuntu-latest
-    needs: build
-    if: github.event_name == 'release'
-    steps:
-      - name: Download binaries
-        uses: actions/download-artifact@v3
-        with:
-          name: binaries
-          path: build/
-
-      - name: Upload binaries to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          file: build/*
-          tag: ${{ github.ref }}
-          overwrite: true
-          file_glob: true 
+            VERSION=${{ steps.get_version.outputs.version }} 
