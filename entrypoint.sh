@@ -4,7 +4,7 @@
 
 # 如果MODE未设置或为help，则运行一个永久循环以保持容器活跃
 if [ -z "$MODE" ] || [ "$MODE" = "help" ]; then
-    echo "Connection-CLI is running in daemon mode."
+    echo "Connection CLI is running in daemon mode."
     echo "To run tests, set the MODE environment variable to one of: mysql, postgres, redis, port, http"
     echo "Example: docker run -e MODE=port -e HOST=example.com -e PORT=80 connection-cli"
 
