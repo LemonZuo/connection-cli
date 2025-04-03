@@ -337,7 +337,8 @@ jobs:
       - name: Create checksums
         run: |
           cd build
-          shasum -a 256 *.* > checksums.txt
+          # 确保使用正确的通配符，包含所有文件
+          find . -type f -not -name "checksums.txt" -exec shasum -a 256 {} \; > checksums.txt
           cat checksums.txt
 
       - name: Get previous tag
@@ -360,10 +361,8 @@ jobs:
           CURRENT_TAG="${{ steps.previoustag.outputs.current_tag }}"
           PREVIOUS_TAG="${{ steps.previoustag.outputs.previous_tag }}"
           
-          echo "# $CURRENT_TAG" > release_body.md
-          echo "" >> release_body.md
-          
-          echo "## 📝 Changelog" >> release_body.md
+          # 移除标题，避免重复
+          echo "## 📝 Changelog" > release_body.md
           echo "" >> release_body.md
           
           if [ -n "$PREVIOUS_TAG" ]; then
