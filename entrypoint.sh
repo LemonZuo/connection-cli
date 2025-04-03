@@ -1,6 +1,6 @@
 #!/bin/sh
 
-echo "Connection-CLI Version: $(/app/connection-cli --version)"
+/app/connection-cli --version
 
 # 如果MODE未设置或为help，则运行一个永久循环以保持容器活跃
 if [ -z "$MODE" ] || [ "$MODE" = "help" ]; then
