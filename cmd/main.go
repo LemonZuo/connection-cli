@@ -3,13 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"connection-cli/pkg/http"
+	"connection-cli/pkg/logger"
 	"connection-cli/pkg/mysql"
 	"connection-cli/pkg/port"
 	"connection-cli/pkg/postgres"
@@ -21,21 +21,25 @@ var Version = "dev"
 
 // Config holds the application configuration
 type Config struct {
-	Mode       string
-	Host       string
-	Port       int
-	Username   string
-	Password   string
-	Database   string
-	URL        string
-	Timeout    time.Duration
-	SSLMode    string
-	RedisDB    int
-	HTTPMethod string
+	Mode        string
+	Host        string
+	Port        int
+	Username    string
+	Password    string
+	Database    string
+	URL         string
+	Timeout     time.Duration
+	SSLMode     string
+	RedisDB     int
+	HTTPMethod  string
 	ShowVersion bool
 }
 
 func main() {
+	// 初始化日志
+	logger.Init()
+	defer logger.Close()
+
 	var config Config
 
 	// Define command-line flags
@@ -57,6 +61,7 @@ func main() {
 
 	// Show version if requested
 	if config.ShowVersion {
+		logger.Info("Connection CLI version %s", Version)
 		fmt.Printf("Connection CLI version %s\n", Version)
 		os.Exit(0)
 	}
@@ -107,6 +112,7 @@ func main() {
 
 	// If mode is empty, display help and exit
 	if config.Mode == "" || config.Mode == "help" {
+		logger.Info("Showing help information")
 		fmt.Printf("Connection CLI %s - A tool for testing connectivity to various services\n\n", Version)
 		fmt.Println("Usage:")
 		flag.PrintDefaults()
@@ -114,21 +120,28 @@ func main() {
 		os.Exit(0)
 	}
 
+	logger.Info("Starting connection test: mode=%s, host=%s, port=%d", config.Mode, config.Host, config.Port)
+
 	// Validate required parameters
 	if config.Mode != "http" && config.Port == 0 {
-		log.Fatal("Port is required for mode: ", config.Mode)
+		logger.Error("Port is required for mode: %s", config.Mode)
+		fmt.Fprintf(os.Stderr, "Error: Port is required for mode: %s\n", config.Mode)
+		os.Exit(1)
 	}
 
 	// Validate URL for HTTP mode
 	if config.Mode == "http" && config.URL == "" {
-		log.Fatal("URL is required for HTTP mode")
+		logger.Error("URL is required for HTTP mode")
+		fmt.Fprintf(os.Stderr, "Error: URL is required for HTTP mode\n")
+		os.Exit(1)
 	}
 
 	// Health check based on the selected mode
-	var err error
+	var testErr error
 	switch strings.ToLower(config.Mode) {
 	case "mysql":
-		err = mysql.Test(mysql.Config{
+		logger.Info("Testing MySQL connection to %s:%d", config.Host, config.Port)
+		testErr = mysql.Test(mysql.Config{
 			Host:     config.Host,
 			Port:     config.Port,
 			Username: config.Username,
@@ -137,7 +150,8 @@ func main() {
 			Timeout:  config.Timeout,
 		})
 	case "postgres":
-		err = postgres.Test(postgres.Config{
+		logger.Info("Testing PostgreSQL connection to %s:%d", config.Host, config.Port)
+		testErr = postgres.Test(postgres.Config{
 			Host:     config.Host,
 			Port:     config.Port,
 			Username: config.Username,
@@ -147,33 +161,43 @@ func main() {
 			Timeout:  config.Timeout,
 		})
 	case "redis":
-		err = redis.Test(redis.Config{
+		logger.Info("Testing Redis connection to %s:%d", config.Host, config.Port)
+		testErr = redis.Test(redis.Config{
 			Host:     config.Host,
 			Port:     config.Port,
+			Username: config.Username,
 			Password: config.Password,
 			DB:       config.RedisDB,
 			Timeout:  config.Timeout,
 		})
 	case "port":
-		err = port.Test(port.Config{
+		logger.Info("Testing port connectivity to %s:%d", config.Host, config.Port)
+		testErr = port.Test(port.Config{
 			Host:    config.Host,
 			Port:    config.Port,
 			Timeout: config.Timeout,
 		})
 	case "http":
-		err = http.Test(http.Config{
+		logger.Info("Testing HTTP connection to %s", config.URL)
+		testErr = http.Test(http.Config{
 			URL:     config.URL,
 			Method:  config.HTTPMethod,
 			Timeout: config.Timeout,
 		})
 	default:
-		log.Fatalf("Unsupported mode: %s", config.Mode)
+		logger.Error("Unsupported mode: %s", config.Mode)
+		fmt.Fprintf(os.Stderr, "Error: Unsupported mode: %s\n", config.Mode)
+		os.Exit(1)
 	}
 
-	if err != nil {
-		log.Fatalf("Connection test failed: %v", err)
+	if testErr != nil {
+		logger.Error("Connection test failed: %v", testErr)
+		fmt.Fprintf(os.Stderr, "Error: Connection test failed: %v\n", testErr)
+		os.Exit(1)
 	}
 
-	fmt.Printf("Successfully connected to %s\n", config.Mode)
+	successMsg := fmt.Sprintf("Successfully connected to %s", config.Mode)
+	logger.Info(successMsg)
+	fmt.Println(successMsg)
 	os.Exit(0)
-} 
+}

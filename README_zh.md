@@ -8,12 +8,13 @@
 
 - MySQL连接测试
 - PostgreSQL连接测试
-- Redis连接测试
+- Redis连接测试（支持用户名/密码认证）
 - TCP端口连通性测试
 - HTTP URL可访问性测试
 - 多平台构建支持（Linux、macOS、Windows）
 - Docker支持及健康检查
 - 命令行界面和环境变量配置
+- 自动日志记录到app.log文件
 
 ## 安装
 
@@ -101,7 +102,7 @@ connection-cli -mode=postgres -host=localhost -port=5432 -username=postgres -pas
 #### Redis连接测试
 
 ```bash
-connection-cli -mode=redis -host=localhost -port=6379 -password=secret
+connection-cli -mode=redis -host=localhost -port=6379 -username=redisuser -password=secret
 ```
 
 #### 端口连接测试
@@ -129,7 +130,7 @@ docker run --rm -e MODE=mysql -e HOST=mysql-server -e PORT=3306 -e USERNAME=root
 docker run --rm -e MODE=postgres -e HOST=postgres-server -e PORT=5432 -e USERNAME=postgres -e PASSWORD=secret -e DATABASE=mydb zuokaiqi/connection-cli
 
 # Redis测试
-docker run --rm -e MODE=redis -e HOST=redis-server -e PORT=6379 -e PASSWORD=secret zuokaiqi/connection-cli
+docker run --rm -e MODE=redis -e HOST=redis-server -e PORT=6379 -e USERNAME=redisuser -e PASSWORD=secret zuokaiqi/connection-cli
 
 # 端口测试
 docker run --rm -e MODE=port -e HOST=service-host -e PORT=8080 zuokaiqi/connection-cli
@@ -150,6 +151,15 @@ healthcheck:
   retries: 3
   start_period: 15s
 ```
+
+## 日志功能
+
+该工具会自动将所有操作记录到当前目录下的`app.log`文件中，包括：
+- 连接尝试
+- 成功和失败消息
+- 错误详情
+
+这使您可以在自动化环境中运行时保持所有连接测试的记录。
 
 ## 许可证
 

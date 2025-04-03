@@ -21,6 +21,8 @@ services:
       - HEALTH_HOST=${HEALTH_HOST:-localhost}
       - HEALTH_PORT=${HEALTH_PORT:-80}
       - HEALTH_TIMEOUT=${HEALTH_TIMEOUT:-5s}
+    volumes:
+      - ./logs:/app/logs
     networks:
       - connection-cli-network
     # 容器会一直运行
@@ -51,8 +53,8 @@ services:
       - connection-cli-network
 
   redis:
-    image: redis:6.2
-    command: redis-server --requirepass password
+    image: redis:7.0
+    command: redis-server --requirepass password --user default on >password ~* +@all --user testuser on >testpassword ~* +@all
     ports:
       - "6379:6379"
     networks:

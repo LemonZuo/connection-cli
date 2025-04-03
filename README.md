@@ -8,12 +8,13 @@ A Go application that tests connectivity to various services including MySQL, Po
 
 - MySQL connection testing
 - PostgreSQL connection testing
-- Redis connection testing
+- Redis connection testing (with username/password support)
 - TCP port connectivity testing
 - HTTP URL accessibility testing
 - Multi-platform builds (Linux, macOS, Windows)
 - Docker support with health checks
 - Command-line interface and environment variable configuration
+- Automatic logging to app.log file
 
 ## Installation
 
@@ -101,7 +102,7 @@ connection-cli -mode=postgres -host=localhost -port=5432 -username=postgres -pas
 #### Redis Connection Test
 
 ```bash
-connection-cli -mode=redis -host=localhost -port=6379 -password=secret
+connection-cli -mode=redis -host=localhost -port=6379 -username=redisuser -password=secret
 ```
 
 #### Port Connection Test
@@ -129,7 +130,7 @@ docker run --rm -e MODE=mysql -e HOST=mysql-server -e PORT=3306 -e USERNAME=root
 docker run --rm -e MODE=postgres -e HOST=postgres-server -e PORT=5432 -e USERNAME=postgres -e PASSWORD=secret -e DATABASE=mydb zuokaiqi/connection-cli
 
 # Redis test
-docker run --rm -e MODE=redis -e HOST=redis-server -e PORT=6379 -e PASSWORD=secret zuokaiqi/connection-cli
+docker run --rm -e MODE=redis -e HOST=redis-server -e PORT=6379 -e USERNAME=redisuser -e PASSWORD=secret zuokaiqi/connection-cli
 
 # Port test
 docker run --rm -e MODE=port -e HOST=service-host -e PORT=8080 zuokaiqi/connection-cli
@@ -150,6 +151,15 @@ healthcheck:
   retries: 3
   start_period: 15s
 ```
+
+## Logging
+
+The tool automatically logs all operations to the `app.log` file in the current directory. This includes:
+- Connection attempts
+- Success and failure messages
+- Error details
+
+This allows you to keep a record of all connectivity tests even when running in automated environments.
 
 ## License
 

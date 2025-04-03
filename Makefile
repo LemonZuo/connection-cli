@@ -178,7 +178,7 @@ test-postgres:
 # Test Redis connection
 test-redis:
 	@echo "🔍 Testing Redis connection..."
-	go run -ldflags="-X main.Version=$(VERSION)" ./cmd/main.go -mode=redis -host=$(HOST) -port=$(PORT) -password=$(PASSWORD) -redis-db=$(REDIS_DB)
+	go run -ldflags="-X main.Version=$(VERSION)" ./cmd/main.go -mode=redis -host=$(HOST) -port=$(PORT) -username=$(USERNAME) -password=$(PASSWORD) -redis-db=$(REDIS_DB)
 
 # Test port connection
 test-port:
