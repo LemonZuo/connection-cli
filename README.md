@@ -5,7 +5,7 @@
 ![GitHub License](https://img.shields.io/github/license/LemonZuo/connection-cli)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/t/LemonZuo/connection-cli)
 ![GitHub Release](https://img.shields.io/github/v/release/LemonZuo/connection-cli?color=brightgreen)
-![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Fci.yml)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/LemonZuo/connection-cli/.github%2Fworkflows%2Frelease.yml)
 ![Docker Pulls](https://img.shields.io/docker/pulls/zuokaiqi/connection-cli)
 
 
